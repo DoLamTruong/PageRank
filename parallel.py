@@ -6,87 +6,110 @@ from functools import reduce
 
 DAMPING = 0.8
 EPSILON = 1e-10
+flatBreak = False
 
-print("Enter size: ")
-size = int(input())
+Comm = MPI.COMM_WORLD
+rank = Comm.Get_rank()
+sizeMPI = Comm.Get_size()
 
-# create initial vector v0
-x = np.random.randint(2, size=(size, size))
-filename = "data.txt"
-normal = 1/size
-value = np.full(size, normal)
-print(value)
-# read data from file
-# we will get what
-# edgeMatrix = np.zeros((size, size))
-# sumRow =  [0 for col in range(size)]
-# transitionMatrix = np.zeros((size, size))
+if rank == 0:
 
-# filename = "data.txt"
-# f = open(filename)
-# #   fromNode,toNode = np.fromfile(f, dtype=int, count=2, sep=" ")
-# # with open('filename.txt') as fp:
-# for line in f:
-#     fromNode,toNode=list(map(int, line.split()))
-#     edgeMatrix[fromNode][toNode] = 1
-#     sumRow[fromNode] += 1
-# # data = np.loadtxt(filename)
-# print(edgeMatrix)
+    print("Enter size: ")
+    size = int(input())
 
-# initVectorV = np.full(size, 1/size)
-# print(initVectorV)
-# print(sumRow)
-# for i in range(size):
-#     for j in range(size):
-#         if edgeMatrix[i][j]:
-#             transitionMatrix[i][j] = 1/sumRow[i]
-
-# print(transitionMatrix)
-
-def readFiletogetMatrix(fileName):
+    filename = "data.txt"
+    normal = 1/size
+    value = np.full(size, normal)
+    chunksValue = []
+    lengthEachMPI = int(size/sizeMPI)
+    print("lengthEachMPI: ", lengthEachMPI)
+    print("sizeMPI: ", sizeMPI)
+    for i in range(sizeMPI):
+        if i == sizeMPI-1:
+            chunksValue.append(value[i*lengthEachMPI:])
+        else:
+            chunksValue.append(value[i*lengthEachMPI:(i+1)*lengthEachMPI])
+        print("chunksValue[", i, "] = ", chunksValue[i])
+    
+    # readFiletogetMatrix
     edgeMatrix = np.zeros((size, size))
-    sumRow =  [0 for col in range(size)]
+    sumRow =  np.zeros(size)
     transitionMatrix = np.zeros((size, size))
 
-    
     f = open(filename)
-    #   fromNode,toNode = np.fromfile(f, dtype=int, count=2, sep=" ")
-    # with open('filename.txt') as fp:
     for line in f:
         fromNode,toNode=list(map(int, line.split()))
         edgeMatrix[fromNode][toNode] = 1
         sumRow[fromNode] += 1
-    # data = np.loadtxt(filename)
-    # print(edgeMatrix)
 
-    
-    # print(sumRow)
     for i in range(size):
         for j in range(size):
             if edgeMatrix[i][j]:
+                # transitionMatrix is saved with collum, row order
                 transitionMatrix[j][i] = 1/sumRow[i]
+    step = 0
+    start = timeit.default_timer()
 
-    # print(transitionMatrix)
-    return transitionMatrix
+    preventError = (1-DAMPING)/size
+else:
+    size =None
+    transitionMatrix = None
+    preventError= None
+    value= None
+    lengthEachMPI= None
+    chunksValue = None
 
-transitionMatrix = readFiletogetMatrix(filename)
-step = 0
-preventError = (1-DAMPING)/size
+size = Comm.bcast(size, root = 0)
+transitionMatrix = Comm.bcast(transitionMatrix, root = 0)
+preventError = Comm.bcast(preventError, root = 0)
+# value = Comm.bcast(value, root = 0)
+lengthEachMPI = Comm.bcast(lengthEachMPI, root = 0)
+if rank == sizeMPI -1:
+    lengthEachMPI += size%sizeMPI
 
-start = timeit.default_timer()
+tempChunksValue = Comm.scatter(chunksValue, root = 0)
+print("rank ", rank, "chunk ", tempChunksValue)
 
+Comm.Barrier()
 while True:
-    step += 1
-    tempValue = [0 for col in range(size)]
-    for i in range (size):
-        tempValue[i] = preventError + DAMPING* sum(value*transitionMatrix[i])
-    isClose = list(np.isclose(tempValue, value, atol = EPSILON))
-    print(tempValue)
-    if False not in isClose:
-        break
-    value = tempValue
+    chunksValue = Comm.gather(tempChunksValue,root=0)
+    if rank == 0:
+        step += 1
+        newValue = []
+        for ind in chunksValue:
+            newValue.extend(ind)
+        print("step", step-1)
+        print("new: ", newValue)
+        print("value ", value)
+        close = list(np.isclose(newValue, value, atol = EPSILON))
+        if False not in close and step > 2:
+            flatBreak = True
+        value = newValue
+        tempValue = [0 for col in range(size)]
+        # tempChunksValue = [0 for col in range(size)]
+        tempChunksValue = []
+        for i in range(sizeMPI):
+            if i == (sizeMPI-1):
+                tempChunksValue.append(value[i*lengthEachMPI:])
+            else:
+                tempChunksValue.append(value[i*lengthEachMPI:(i+1)*lengthEachMPI])
+        
+        
+    value = Comm.bcast(value, root = 0)
+    tempChunksValue = Comm.scatter(tempChunksValue, root = 0)
+    for i in range (lengthEachMPI):
+        tempChunksValue[i] = preventError + DAMPING* sum(value*transitionMatrix[rank*lengthEachMPI + i])
+    
 
-stop = timeit.default_timer()
-print("Step: ", step)
-print("Time: ", stop - start, "=====================")
-print(value)
+    
+    # value = tempValue
+    Comm.Barrier()
+    if flatBreak:
+        break
+    
+
+if rank == 0:
+    stop = timeit.default_timer()
+    print("Step: ", step)
+    print("Time: ", stop - start, "=====================")
+    print(value)
