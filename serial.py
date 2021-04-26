@@ -11,7 +11,7 @@ print("Enter size: ")
 size = int(input())
 
 # create initial vector v0
-filename = "data.txt"
+filename = "data2.txt"
 normal = 1/size
 value = np.full(size, normal)
 
@@ -47,7 +47,7 @@ while True:
     for i in range (size):
         tempValue[i] = preventError + DAMPING* sum(value*transitionMatrix[i])
     close = list(np.isclose(tempValue, value, atol = EPSILON))
-    print(tempValue)
+    # print(tempValue)
     if False not in close:
         break
     value = tempValue

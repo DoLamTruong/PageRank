@@ -17,19 +17,19 @@ if rank == 0:
     print("Enter size: ")
     size = int(input())
 
-    filename = "data.txt"
+    filename = "data2.txt"
     normal = 1/size
     value = np.full(size, normal)
     chunksValue = []
     lengthEachMPI = int(size/sizeMPI)
-    print("lengthEachMPI: ", lengthEachMPI)
-    print("sizeMPI: ", sizeMPI)
+    # print("lengthEachMPI: ", lengthEachMPI)
+    # print("sizeMPI: ", sizeMPI)
     for i in range(sizeMPI):
         if i == sizeMPI-1:
             chunksValue.append(value[i*lengthEachMPI:])
         else:
             chunksValue.append(value[i*lengthEachMPI:(i+1)*lengthEachMPI])
-        print("chunksValue[", i, "] = ", chunksValue[i])
+        # print("chunksValue[", i, "] = ", chunksValue[i])
     
     # readFiletogetMatrix
     edgeMatrix = np.zeros((size, size))
@@ -68,7 +68,7 @@ if rank == sizeMPI -1:
     lengthEachMPI += size%sizeMPI
 
 tempChunksValue = Comm.scatter(chunksValue, root = 0)
-print("rank ", rank, "chunk ", tempChunksValue)
+# print("rank ", rank, "chunk ", tempChunksValue)
 
 Comm.Barrier()
 while True:
@@ -78,15 +78,14 @@ while True:
         newValue = []
         for ind in chunksValue:
             newValue.extend(ind)
-        print("step", step-1)
-        print("new: ", newValue)
-        print("value ", value)
+        # print("step", step-1)
+        # print("new: ", newValue)
+        # print("value ", value)
         close = list(np.isclose(newValue, value, atol = EPSILON))
         if False not in close and step > 2:
             flatBreak = True
         value = newValue
         tempValue = [0 for col in range(size)]
-        # tempChunksValue = [0 for col in range(size)]
         tempChunksValue = []
         for i in range(sizeMPI):
             if i == (sizeMPI-1):
