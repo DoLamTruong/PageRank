@@ -13,8 +13,8 @@ sizeMPI = Comm.Get_size()
 if rank == 0:
 
     # print("Enter size: ")
-    size = 875713
-    filename = "web-Google.txt"
+    size = 500
+    filename = "data10.txt"
     normal = 1/size
     value = np.full(size, normal)
     chunksValue = []

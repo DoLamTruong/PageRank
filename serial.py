@@ -5,10 +5,10 @@ DAMPING = 0.85
 EPSILON = 1e-10
 
 # print("Enter size: ")
-size = 875713
+size = 500
 
 # create initial vector v0
-filename = "web-Google.txt"
+filename = "data10.txt"
 normal = 1/size
 value = np.full(size, normal)
 
