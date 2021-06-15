@@ -1,17 +1,14 @@
-import os.path
-from mpi4py import MPI
 import numpy as np
 import timeit
-from functools import reduce
 
-DAMPING = 0.8
+DAMPING = 0.85
 EPSILON = 1e-10
 
-print("Enter size: ")
-size = int(input())
+# print("Enter size: ")
+size = 875713
 
 # create initial vector v0
-filename = "data2.txt"
+filename = "web-Google.txt"
 normal = 1/size
 value = np.full(size, normal)
 
@@ -28,10 +25,15 @@ def readFiletogetMatrix(fileName):
         sumRow[fromNode] += 1
     
     for i in range(size):
-        for j in range(size):
-            if edgeMatrix[i][j]:
+        if sumRow[i] == 0:
+            for j in range(size):
                 # transitionMatrix is saved with collum, row order
-                transitionMatrix[j][i] = 1/sumRow[i]
+                transitionMatrix[j][i] = normal
+        else:
+            for j in range(size):
+                if edgeMatrix[i][j]:
+                    # transitionMatrix is saved with collum, row order
+                    transitionMatrix[j][i] = 1/sumRow[i]
 
     return transitionMatrix
 
@@ -47,12 +49,15 @@ while True:
     for i in range (size):
         tempValue[i] = preventError + DAMPING* sum(value*transitionMatrix[i])
     close = list(np.isclose(tempValue, value, atol = EPSILON))
-    # print(tempValue)
     if False not in close:
         break
     value = tempValue
+    # print(value)
 
 stop = timeit.default_timer()
 print("Step: ", step)
 print("Time: ", stop - start, "=====================")
-print(value)
+# print(value)
+f = open("serialResult.txt", "w")
+f.write(str(value))
+f.close()
