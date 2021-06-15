@@ -5,7 +5,7 @@ DAMPING = 0.85
 EPSILON = 1e-10
 
 # print("Enter size: ")
-size = 10000
+size = 500
 
 # create initial vector v0
 filename = "data10.txt"
